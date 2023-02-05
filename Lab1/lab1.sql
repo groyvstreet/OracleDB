@@ -42,7 +42,7 @@ begin
 end check_vals;
 
 begin
-dbms_output.put_line(check_vals());
+    dbms_output.put_line(check_vals());
 end;
 
 -- 4.
@@ -57,7 +57,7 @@ exception
 end text_insert;
 
 begin
-dbms_output.put_line(text_insert(1));
+    dbms_output.put_line(text_insert(1));
 end;
 
 -- 5.
@@ -101,3 +101,46 @@ begin
 end;
 
 -- 6.
+create or replace function get_reward(salary_text varchar2, percent_text varchar2) return float is
+    salary float;
+    percent float;
+    result float;
+begin
+    if instr(salary_text, '.') > 0 then
+        salary := replace(salary_text, '.', ',');
+    else
+        salary := salary_text;
+    end if;
+
+    if instr(percent_text, '.') > 0 then
+        percent := replace(percent_text, '.', ',');
+    else
+        percent := percent_text;
+    end if;
+
+    if salary <= 0.0 then
+        dbms_output.put_line('The salary must be positive.');
+        return 0.0;
+    end if;
+
+    if percent <= 1.0 then
+        dbms_output.put_line('Min value for the percent is 1.');
+        return 0.0;
+    end if;
+
+    if mod(percent, 1) > 0 then
+        dbms_output.put_line('The percent must be an integer.');
+        return 0.0;
+    end if;
+
+    result := (1.0 + percent / 100.0) * 12.0 * salary;
+    return result;
+exception
+    when value_error then
+    dbms_output.put_line('Invalid input.');
+    return 0.0;
+end get_reward;
+
+begin
+    dbms_output.put_line(get_reward('1200,54', '5'));
+end;
