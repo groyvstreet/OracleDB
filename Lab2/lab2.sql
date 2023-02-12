@@ -150,3 +150,27 @@ end restore_students;
 begin
     restore_students(to_date('2023-02-12 20:28:00', 'yyyy-mm-dd hh24:mi:ss'), to_date('2023-02-12 21:00:00', 'yyyy-mm-dd hh24:mi:ss'));
 end;
+
+-- 6.
+create or replace trigger students_control
+    after insert or update or delete
+    on students
+    for each row
+declare
+    amount number;
+begin
+    if inserting then
+        select c_val into amount from groups where id = :new.group_id;
+        update groups set c_val = amount + 1 where id = :new.group_id;
+    elsif updating then
+        if :old.group_id != :new.group_id then
+            select c_val into amount from groups where id = :old.group_id;
+            update groups set c_val = amount - 1 where id = :old.group_id;
+            select c_val into amount from groups where id = :new.group_id;
+            update groups set c_val = amount + 1 where id = :new.group_id;
+        end if;
+    elsif deleting then
+        select c_val into amount from groups where id = :old.group_id;
+        update groups set c_val = amount - 1 where id = :old.group_id;
+    end if;
+end students_control;
