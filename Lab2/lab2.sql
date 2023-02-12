@@ -126,3 +126,27 @@ begin
         insert into students_logs values(:old.id, :old.name, null, :old.group_id, null, 'delete', sysdate);
     end if;
 end students_logs;
+
+-- 5.
+create or replace procedure restore_students(start_time date, finish_time date) is
+    cursor records is
+        select *
+        from students_logs
+        where time between start_time and finish_time
+        order by time desc;
+begin
+    for record in records
+    loop
+        if record.action = 'insert' then
+            delete from students where id = record.student_id;
+        elsif record.action = 'update' then
+            update students set name = record.old_name, group_id = record.old_group_id where id = record.student_id;
+        else
+            insert into students values(record.student_id, record.old_name, record.old_group_id);
+        end if;
+    end loop;
+end restore_students;
+
+begin
+    restore_students(to_date('2023-02-12 20:28:00', 'yyyy-mm-dd hh24:mi:ss'), to_date('2023-02-12 21:00:00', 'yyyy-mm-dd hh24:mi:ss'));
+end;
