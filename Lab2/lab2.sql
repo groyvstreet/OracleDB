@@ -27,7 +27,7 @@ begin
         select max(id) into last_id from students;
         if :new.id > last_id then
             :new.id := last_id + 1;
-        elsif :new.id > 1 then
+        elsif :new.id > 0 then
             select count(*) into amount from students where id = :new.id;
             if amount > 0 then
                 :new.id := last_id + 1;
@@ -65,7 +65,7 @@ begin
             select max(id) into last_id from groups;
             if :new.id > last_id then
                 :new.id := last_id + 1;
-            elsif :new.id > 1 then
+            elsif :new.id > 0 then
                 select count(*) into amount from groups where id = :new.id;
                 if amount > 0 then
                     :new.id := last_id + 1;
@@ -101,3 +101,28 @@ create or replace trigger groups_delete
 begin
     delete from students where group_id = :old.id;
 end groups_delete;
+
+-- 4.
+create table students_logs(
+    student_id number,
+    old_name varchar2(100),
+    new_name varchar2(100),
+    old_group_id number,
+    new_group_id number,
+    action varchar2(6),
+    time date
+);
+
+create or replace trigger students_logs
+    after insert or update or delete
+    on students
+    for each row
+begin
+    if inserting then
+        insert into students_logs values(:new.id, null, :new.name, null, :new.group_id, 'insert', sysdate);
+    elsif updating then
+        insert into students_logs values(:old.id, :old.name, :new.name, :old.group_id, :new.group_id, 'update', sysdate);
+    elsif deleting then
+        insert into students_logs values(:old.id, :old.name, null, :old.group_id, null, 'delete', sysdate);
+    end if;
+end students_logs;
