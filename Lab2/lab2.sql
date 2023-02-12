@@ -94,3 +94,10 @@ begin
 end groups_update;
 
 -- 3.
+create or replace trigger groups_delete
+    after delete
+    on groups
+    for each row
+begin
+    delete from students where group_id = :old.id;
+end groups_delete;
