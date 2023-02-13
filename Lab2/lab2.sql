@@ -99,7 +99,8 @@ create or replace trigger groups_delete
     on groups
     for each row
 begin
-    delete from students where group_id = :old.id;
+    update students set group_id = 0 where group_id = :old.id;
+    delete from students where group_id = 0;
 end groups_delete;
 
 -- 4.
@@ -163,14 +164,16 @@ begin
         select c_val into amount from groups where id = :new.group_id;
         update groups set c_val = amount + 1 where id = :new.group_id;
     elsif updating then
-        if :old.group_id != :new.group_id then
+        if :old.group_id != :new.group_id and :new.group_id != 0 then
             select c_val into amount from groups where id = :old.group_id;
             update groups set c_val = amount - 1 where id = :old.group_id;
             select c_val into amount from groups where id = :new.group_id;
             update groups set c_val = amount + 1 where id = :new.group_id;
         end if;
     elsif deleting then
-        select c_val into amount from groups where id = :old.group_id;
-        update groups set c_val = amount - 1 where id = :old.group_id;
+        if :old.group_id != 0 then
+            select c_val into amount from groups where id = :old.group_id;
+            update groups set c_val = amount - 1 where id = :old.group_id;
+        end if;
     end if;
 end students_control;
