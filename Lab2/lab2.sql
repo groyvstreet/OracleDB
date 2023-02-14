@@ -95,12 +95,11 @@ end groups_update;
 
 -- 3.
 create or replace trigger groups_delete
-    after delete
+    before delete
     on groups
     for each row
 begin
-    update students set group_id = 0 where group_id = :old.id;
-    delete from students where group_id = 0;
+    delete from students where group_id = :old.id;
 end groups_delete;
 
 -- 4.
@@ -115,9 +114,11 @@ create table students_logs(
 );
 
 create or replace trigger students_logs
-    after insert or update or delete
+    before insert or update or delete
     on students
     for each row
+declare
+    pragma autonomous_transaction;
 begin
     if inserting then
         insert into students_logs values(:new.id, null, :new.name, null, :new.group_id, 'insert', sysdate);
@@ -126,6 +127,7 @@ begin
     elsif deleting then
         insert into students_logs values(:old.id, :old.name, null, :old.group_id, null, 'delete', sysdate);
     end if;
+    commit;
 end students_logs;
 
 -- 5.
@@ -136,6 +138,8 @@ create or replace procedure restore_students(start_time date, finish_time date) 
         where time between start_time and finish_time
         order by time desc;
 begin
+    execute immediate 'alter trigger students_insert disable';
+    execute immediate 'alter trigger students_logs disable';
     for record in records
     loop
         if record.action = 'insert' then
@@ -146,34 +150,31 @@ begin
             insert into students values(record.student_id, record.old_name, record.old_group_id);
         end if;
     end loop;
+    execute immediate 'alter trigger students_insert enable';
+    execute immediate 'alter trigger students_logs enable';
 end restore_students;
 
 begin
-    restore_students(to_date('2023-02-12 20:28:00', 'yyyy-mm-dd hh24:mi:ss'), to_date('2023-02-12 21:00:00', 'yyyy-mm-dd hh24:mi:ss'));
+    restore_students(to_date('2023-02-00 00:00:00', 'yyyy-mm-dd hh24:mi:ss'), to_date('2023-02-00 00:00:00', 'yyyy-mm-dd hh24:mi:ss'));
 end;
 
 -- 6.
 create or replace trigger students_control
-    after insert or update or delete
+    before insert or update or delete
     on students
     for each row
 declare
-    amount number;
+    pragma autonomous_transaction;
 begin
     if inserting then
-        select c_val into amount from groups where id = :new.group_id;
-        update groups set c_val = amount + 1 where id = :new.group_id;
+        update groups set c_val = c_val + 1 where id = :new.group_id;
     elsif updating then
-        if :old.group_id != :new.group_id and :new.group_id != 0 then
-            select c_val into amount from groups where id = :old.group_id;
-            update groups set c_val = amount - 1 where id = :old.group_id;
-            select c_val into amount from groups where id = :new.group_id;
-            update groups set c_val = amount + 1 where id = :new.group_id;
+        if :old.group_id != :new.group_id then
+            update groups set c_val = c_val - 1 where id = :old.group_id;
+            update groups set c_val = c_val + 1 where id = :new.group_id;
         end if;
     elsif deleting then
-        if :old.group_id != 0 then
-            select c_val into amount from groups where id = :old.group_id;
-            update groups set c_val = amount - 1 where id = :old.group_id;
-        end if;
+        update groups set c_val = c_val - 1 where id = :old.group_id;
     end if;
+    commit;
 end students_control;
