@@ -54,19 +54,38 @@ create or replace procedure get_tables(dev_schema_name varchar2, prod_schema_nam
         select *
         from all_tables
         where owner = dev_schema_name;
-    cursor prod_schema_tables is
+    cursor dev_table_columns(tab_name varchar2) is
         select *
-        from all_tables
-        where owner = prod_schema_name;
-    type table_list_t is table of varchar2(30) index by pls_integer;
-    dev_tables_list table_list_t;
+        from all_tab_columns
+        where owner = dev_schema_name
+            and table_name = tab_name
+        order by column_name;
     amount number;
+    columns_amount1 number;
+    columns_amount2 number;
 begin
     for dev_schema_table in dev_schema_tables
     loop
         select count(*) into amount from all_tables where owner = prod_schema_name and table_name = dev_schema_table.table_name;
         if amount = 0 then
             dbms_output.put_line(dev_schema_table.table_name);
+        else
+            select count(*) into columns_amount1 from all_tab_columns where owner = dev_schema_name and table_name = dev_schema_table.table_name;
+            select count(*) into columns_amount2 from all_tab_columns where owner = prod_schema_name and table_name = dev_schema_table.table_name;
+            if columns_amount1 = columns_amount2 then
+                for record in dev_table_columns(dev_schema_table.table_name)
+                loop
+                    select count(*) into amount from all_tab_columns where owner = prod_schema_name and table_name = dev_schema_table.table_name and
+                        column_name = record.column_name and data_type = record.data_type and data_length = record.data_length and
+                        nullable = record.nullable;
+                    if amount = 0 then
+                        dbms_output.put_line(dev_schema_table.table_name);
+                        exit;
+                    end if;
+                end loop;
+            else
+                dbms_output.put_line(dev_schema_table.table_name);
+            end if;
         end if;
     end loop;
 end get_tables;
@@ -78,4 +97,11 @@ end;
 create table dev_schema.mytable(
     id number,
     val number
-)
+);
+
+create table prod_schema.mytable(
+    id number,
+    val number
+);
+
+select * from all_tab_columns where owner = 'DEV_SCHEMA' or owner = 'PROD_SCHEMA';
