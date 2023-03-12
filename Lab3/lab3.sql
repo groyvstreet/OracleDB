@@ -1,9 +1,7 @@
--- 1.
 alter session set "_ORACLE_SCRIPT"=true;
 create user dev_schema identified by 1;
 create user prod_schema identified by 1;
 
---
 grant create session to dev_schema;
 grant create table to dev_schema;
 grant create procedure to dev_schema;
@@ -26,7 +24,6 @@ grant select on sys.v_$sesstat to dev_schema;
 grant select on sys.v_$statname to dev_schema;
 grant SELECT ANY DICTIONARY to dev_schema;
 
---
 grant create session to prod_schema;
 grant create table to prod_schema;
 grant create procedure to prod_schema;
@@ -48,6 +45,14 @@ grant select on sys.v_$session to prod_schema;
 grant select on sys.v_$sesstat to prod_schema;
 grant select on sys.v_$statname to prod_schema;
 grant SELECT ANY DICTIONARY to prod_schema;
+
+create or replace procedure get_differences(dev_schema_name varchar2, prod_schema_name varchar2) is
+begin
+    get_tables(dev_schema_name, prod_schema_name);
+    get_procedures(dev_schema_name, prod_schema_name);
+    get_functions(dev_schema_name, prod_schema_name);
+    get_indexes(dev_schema_name, prod_schema_name);
+end get_differences;
 
 create or replace procedure get_tables(dev_schema_name varchar2, prod_schema_name varchar2) is
     cursor dev_schema_tables is
@@ -164,8 +169,149 @@ begin
     end loop;
 end get_tables;
 
+create or replace procedure get_procedures(dev_schema_name varchar2, prod_schema_name varchar2) is
+    cursor dev_schema_procedures is
+        select distinct name
+        from all_source
+        where owner = dev_schema_name
+            and type = 'PROCEDURE';
+
+    dev_procedure_text SYS_REFCURSOR;
+    prod_procedure_text SYS_REFCURSOR;
+
+    amount number;
+
+    lines_amount1 number;
+    lines_amount2 number;
+
+    line1 all_source.text%TYPE;
+    line2 all_source.text%TYPE;
+begin
+    for dev_schema_procedure in dev_schema_procedures
+    loop
+        select count(*) into amount from all_source where owner = prod_schema_name and type = 'PROCEDURE' and name = dev_schema_procedure.name;
+        if amount = 0 then
+            dbms_output.put_line(dev_schema_procedure.name);
+        else
+            select count(*) into lines_amount1 from all_source where owner = dev_schema_name and type = 'PROCEDURE' and name = dev_schema_procedure.name;
+            select count(*) into lines_amount2 from all_source where owner = prod_schema_name and type = 'PROCEDURE' and name = dev_schema_procedure.name;
+            if lines_amount1 = lines_amount2 then
+                open dev_procedure_text for
+                    select text
+                    from all_source
+                    where owner = dev_schema_name
+                        and name = dev_schema_procedure.name
+                        and line <> 1
+                    order by line;
+                open prod_procedure_text for
+                    select text
+                    from all_source
+                    where owner = prod_schema_name
+                        and name = dev_schema_procedure.name
+                        and line <> 1
+                    order by line;
+
+                loop
+                    fetch dev_procedure_text into line1;
+                    fetch prod_procedure_text into line2;
+                    
+                    if line1 <> line2 then
+                        dbms_output.put_line(dev_schema_procedure.name);
+                        exit;
+                    end if;
+
+                    exit when dev_procedure_text%NOTFOUND and prod_procedure_text%NOTFOUND;
+                end loop;
+
+                close dev_procedure_text;
+                close prod_procedure_text;
+            else
+                dbms_output.put_line(dev_schema_procedure.name);
+            end if;
+        end if;
+    end loop;
+end get_procedures;
+
+create or replace procedure get_functions(dev_schema_name varchar2, prod_schema_name varchar2) is
+    cursor dev_schema_functions is
+        select distinct name
+        from all_source
+        where owner = dev_schema_name
+            and type = 'FUNCTION';
+
+    dev_function_text SYS_REFCURSOR;
+    prod_function_text SYS_REFCURSOR;
+
+    
+
+    amount number;
+
+    args_amount1 number;
+    args_amount2 number;
+
+    arg1 all_arguments.argument_name%TYPE;
+    type1 all_arguments.data_type%TYPE;
+
+    arg2 all_arguments.argument_name%TYPE;
+    type2 all_arguments.data_type%TYPE;
+
+    lines_amount1 number;
+    lines_amount2 number;
+
+    line1 all_source.text%TYPE;
+    line2 all_source.text%TYPE;
+begin
+    for dev_schema_function in dev_schema_functions
+    loop
+        select count(*) into amount from all_source where owner = prod_schema_name and type = 'FUNCTION' and name = dev_schema_function.name;
+        if amount = 0 then
+            dbms_output.put_line(dev_schema_function.name);
+        else
+            select count(*) into lines_amount1 from all_source where owner = dev_schema_name and type = 'FUNCTION' and name = dev_schema_function.name;
+            select count(*) into lines_amount2 from all_source where owner = prod_schema_name and type = 'FUNCTION' and name = dev_schema_function.name;
+            if lines_amount1 = lines_amount2 then
+                open dev_function_text for
+                    select text
+                    from all_source
+                    where owner = dev_schema_name
+                        and name = dev_schema_function.name
+                        and line <> 1
+                    order by line;
+                open prod_function_text for
+                    select text
+                    from all_source
+                    where owner = prod_schema_name
+                        and name = dev_schema_function.name
+                        and line <> 1
+                    order by line;
+
+                loop
+                    fetch dev_function_text into line1;
+                    fetch prod_function_text into line2;
+                    
+                    if line1 <> line2 then
+                        dbms_output.put_line(dev_schema_function.name);
+                        exit;
+                    end if;
+
+                    exit when dev_function_text%NOTFOUND and prod_function_text%NOTFOUND;
+                end loop;
+
+                close dev_function_text;
+                close prod_function_text;
+            else
+                dbms_output.put_line(dev_schema_function.name);
+            end if;
+        end if;
+    end loop;
+end get_functions;
+
 begin
     get_tables('DEV_SCHEMA', 'PROD_SCHEMA');
+end;
+
+begin
+    get_procedures('DEV_SCHEMA', 'PROD_SCHEMA');
 end;
 
 create table dev_schema.mytable(
@@ -178,4 +324,15 @@ create table prod_schema.mytable(
     val number
 );
 
+create or replace procedure dev_schema.test_proc1 is
+begin
+    dbms_output.put_line('HELLO');
+end;
+
+create or replace function dev_schema.test_func1(arg1 number, arg2 number) return number is
+begin
+    return 1;
+end;
+
 select * from all_tab_columns where owner = 'DEV_SCHEMA' or owner = 'PROD_SCHEMA';
+select * from all_source where name = 'TEST_PROC1';
