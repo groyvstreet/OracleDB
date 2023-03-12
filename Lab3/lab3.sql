@@ -54,15 +54,38 @@ create or replace procedure get_tables(dev_schema_name varchar2, prod_schema_nam
         select *
         from all_tables
         where owner = dev_schema_name;
-    cursor dev_table_columns(tab_name varchar2) is
-        select *
-        from all_tab_columns
-        where owner = dev_schema_name
-            and table_name = tab_name
-        order by column_name;
+
+    dev_table_columns SYS_REFCURSOR;
+    prod_table_columns SYS_REFCURSOR;
+
+    dev_table_constraints SYS_REFCURSOR;
+    prod_table_constraints SYS_REFCURSOR;
+
     amount number;
+
     columns_amount1 number;
     columns_amount2 number;
+
+    column_name1 all_tab_columns.column_name%TYPE;
+    data_type1 all_tab_columns.data_type%TYPE;
+    data_length1 all_tab_columns.data_length%TYPE;
+    nullable1 all_tab_columns.nullable%TYPE;
+
+    column_name2 all_tab_columns.column_name%TYPE;
+    data_type2 all_tab_columns.data_type%TYPE;
+    data_length2 all_tab_columns.data_length%TYPE;
+    nullable2 all_tab_columns.nullable%TYPE;
+
+    constraints_amount1 number;
+    constraints_amount2 number;
+
+    constraint_name1 all_constraints.constraint_name%TYPE;
+    constraint_type1 all_constraints.constraint_type%TYPE;
+    search_condition1 all_constraints.search_condition%TYPE;
+
+    constraint_name2 all_constraints.constraint_name%TYPE;
+    constraint_type2 all_constraints.constraint_type%TYPE;
+    search_condition2 all_constraints.search_condition%TYPE;
 begin
     for dev_schema_table in dev_schema_tables
     loop
@@ -73,16 +96,67 @@ begin
             select count(*) into columns_amount1 from all_tab_columns where owner = dev_schema_name and table_name = dev_schema_table.table_name;
             select count(*) into columns_amount2 from all_tab_columns where owner = prod_schema_name and table_name = dev_schema_table.table_name;
             if columns_amount1 = columns_amount2 then
-                for record in dev_table_columns(dev_schema_table.table_name)
+                open dev_table_columns for
+                    select column_name, data_type, data_length, nullable
+                    from all_tab_columns
+                    where owner = dev_schema_name
+                        and table_name = dev_schema_table.table_name
+                    order by column_name;
+                open prod_table_columns for
+                    select column_name, data_type, data_length, nullable
+                    from all_tab_columns
+                    where owner = prod_schema_name
+                        and table_name = dev_schema_table.table_name
+                    order by column_name;
+
                 loop
-                    select count(*) into amount from all_tab_columns where owner = prod_schema_name and table_name = dev_schema_table.table_name and
-                        column_name = record.column_name and data_type = record.data_type and data_length = record.data_length and
-                        nullable = record.nullable;
-                    if amount = 0 then
+                    fetch dev_table_columns into column_name1, data_type1, data_length1, nullable1;
+                    fetch prod_table_columns into column_name2, data_type2, data_length2, nullable2;
+                    
+                    if column_name1 <> column_name2 or data_type1 <> data_type2 or data_length1 <> data_length2 or nullable1 <> nullable2 then
                         dbms_output.put_line(dev_schema_table.table_name);
                         exit;
                     end if;
+
+                    exit when dev_table_columns%NOTFOUND and prod_table_columns%NOTFOUND;
                 end loop;
+
+                close dev_table_columns;
+                close prod_table_columns;
+            else
+                dbms_output.put_line(dev_schema_table.table_name);
+            end if;
+
+            select count(*) into constraints_amount1 from all_constraints where owner = dev_schema_name and table_name = dev_schema_table.table_name;
+            select count(*) into constraints_amount2 from all_constraints where owner = prod_schema_name and table_name = dev_schema_table.table_name;
+            if constraints_amount1 = constraints_amount2 then
+                open dev_table_constraints for
+                    select constraint_name, constraint_type, search_condition
+                    from all_constraints
+                    where owner = dev_schema_name
+                        and table_name = dev_schema_table.table_name
+                    order by constraint_name;
+                open prod_table_constraints for
+                    select constraint_name, constraint_type, search_condition
+                    from all_constraints
+                    where owner = prod_schema_name
+                        and table_name = dev_schema_table.table_name
+                    order by constraint_name;
+
+                loop
+                    fetch dev_table_constraints into constraint_name1, constraint_type1, search_condition1;
+                    fetch prod_table_constraints into constraint_name2, constraint_type2, search_condition2;
+                    
+                    if constraint_name1 <> constraint_name2 or constraint_type1 <> constraint_type2 or search_condition1 <> search_condition2 then
+                        dbms_output.put_line(dev_schema_table.table_name);
+                        exit;
+                    end if;
+
+                    exit when dev_table_constraints%NOTFOUND and prod_table_constraints%NOTFOUND;
+                end loop;
+
+                close dev_table_constraints;
+                close prod_table_constraints;
             else
                 dbms_output.put_line(dev_schema_table.table_name);
             end if;
