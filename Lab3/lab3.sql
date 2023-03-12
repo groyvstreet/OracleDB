@@ -179,7 +179,19 @@ create or replace procedure get_procedures(dev_schema_name varchar2, prod_schema
     dev_procedure_text SYS_REFCURSOR;
     prod_procedure_text SYS_REFCURSOR;
 
+    dev_procedure_args SYS_REFCURSOR;
+    prod_procedure_args SYS_REFCURSOR;
+
     amount number;
+
+    args_amount1 number;
+    args_amount2 number;
+
+    arg1 all_arguments.argument_name%TYPE;
+    type1 all_arguments.data_type%TYPE;
+
+    arg2 all_arguments.argument_name%TYPE;
+    type2 all_arguments.data_type%TYPE;
 
     lines_amount1 number;
     lines_amount2 number;
@@ -193,6 +205,40 @@ begin
         if amount = 0 then
             dbms_output.put_line(dev_schema_procedure.name);
         else
+            select count(*) into args_amount1 from all_arguments where owner = dev_schema_name and object_name = dev_schema_procedure.name;
+            select count(*) into args_amount2 from all_arguments where owner = prod_schema_name and object_name = dev_schema_procedure.name;
+            if args_amount1 = args_amount2 then
+                open dev_procedure_args for
+                    select argument_name, data_type
+                    from all_arguments
+                    where owner = dev_schema_name
+                        and object_name = dev_schema_procedure.name
+                    order by position;
+                open prod_procedure_args for
+                    select argument_name, data_type
+                    from all_arguments
+                    where owner = prod_schema_name
+                        and object_name = dev_schema_procedure.name
+                    order by position;
+
+                loop
+                    fetch dev_procedure_args into arg1, type1;
+                    fetch prod_procedure_args into arg2, type2;
+                    
+                    if arg1 <> arg2 or type1 <> type2 then
+                        dbms_output.put_line(dev_schema_procedure.name);
+                        exit;
+                    end if;
+
+                    exit when dev_procedure_args%NOTFOUND and prod_procedure_args%NOTFOUND;
+                end loop;
+
+                close dev_procedure_args;
+                close prod_procedure_args;
+            else
+                dbms_output.put_line(dev_schema_procedure.name);
+            end if;
+
             select count(*) into lines_amount1 from all_source where owner = dev_schema_name and type = 'PROCEDURE' and name = dev_schema_procedure.name;
             select count(*) into lines_amount2 from all_source where owner = prod_schema_name and type = 'PROCEDURE' and name = dev_schema_procedure.name;
             if lines_amount1 = lines_amount2 then
@@ -242,7 +288,8 @@ create or replace procedure get_functions(dev_schema_name varchar2, prod_schema_
     dev_function_text SYS_REFCURSOR;
     prod_function_text SYS_REFCURSOR;
 
-    
+    dev_function_args SYS_REFCURSOR;
+    prod_function_args SYS_REFCURSOR;
 
     amount number;
 
@@ -267,6 +314,40 @@ begin
         if amount = 0 then
             dbms_output.put_line(dev_schema_function.name);
         else
+            select count(*) into args_amount1 from all_arguments where owner = dev_schema_name and object_name = dev_schema_function.name;
+            select count(*) into args_amount2 from all_arguments where owner = prod_schema_name and object_name = dev_schema_function.name;
+            if args_amount1 = args_amount2 then
+                open dev_function_args for
+                    select argument_name, data_type
+                    from all_arguments
+                    where owner = dev_schema_name
+                        and object_name = dev_schema_function.name
+                    order by position;
+                open prod_function_args for
+                    select argument_name, data_type
+                    from all_arguments
+                    where owner = prod_schema_name
+                        and object_name = dev_schema_function.name
+                    order by position;
+
+                loop
+                    fetch dev_function_args into arg1, type1;
+                    fetch prod_function_args into arg2, type2;
+                    
+                    if arg1 <> arg2 or type1 <> type2 then
+                        dbms_output.put_line(dev_schema_function.name);
+                        exit;
+                    end if;
+
+                    exit when dev_function_args%NOTFOUND and prod_function_args%NOTFOUND;
+                end loop;
+
+                close dev_function_args;
+                close prod_function_args;
+            else
+                dbms_output.put_line(dev_schema_function.name);
+            end if;
+
             select count(*) into lines_amount1 from all_source where owner = dev_schema_name and type = 'FUNCTION' and name = dev_schema_function.name;
             select count(*) into lines_amount2 from all_source where owner = prod_schema_name and type = 'FUNCTION' and name = dev_schema_function.name;
             if lines_amount1 = lines_amount2 then
@@ -312,6 +393,10 @@ end;
 
 begin
     get_procedures('DEV_SCHEMA', 'PROD_SCHEMA');
+end;
+
+begin
+    get_functions('DEV_SCHEMA', 'PROD_SCHEMA');
 end;
 
 create table dev_schema.mytable(
