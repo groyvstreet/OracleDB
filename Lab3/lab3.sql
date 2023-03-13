@@ -70,7 +70,19 @@ create or replace procedure ddl_create_table(dev_schema_name varchar2, tab_name 
         where owner = dev_schema_name
             and all_constraints.table_name = tab_name
         order by all_constraints.constraint_name;
+    cursor table_foreign_keys(pr varchar2) is
+        select all_constraints.constraint_name, all_constraints.constraint_type, all_constraints.search_condition, all_ind_columns.column_name
+        from all_constraints
+        inner join all_ind_columns
+        on all_constraints.constraint_name = all_ind_columns.index_name
+        where owner = dev_schema_name
+            and all_constraints.constraint_name = pr
+        order by all_constraints.constraint_name;
     result all_source.text%TYPE;
+    pr_key all_constraints.r_constraint_name%TYPE;
+    tab2_name all_constraints.table_name%TYPE;
+    c_name all_constraints.constraint_name%TYPE;
+    amount number;
 begin
     result := concat('DROP TABLE ', prod_schema_name || '.' || UPPER(tab_name) || ';' || chr(10));
     result := concat(result, 'CREATE TABLE ' || prod_schema_name || '.' || UPPER(tab_name) || '(' || chr(10));
@@ -84,6 +96,7 @@ begin
     end loop;
     for table_constraint in table_constraints
     loop
+        c_name := table_constraint.constraint_name;
         result := concat(result, chr(9) || 'CONSTRAINT ' || table_constraint.constraint_name || ' ');
         if table_constraint.constraint_type = 'U' then
             result := concat(result, 'UNIQUE ');
@@ -93,8 +106,28 @@ begin
         end if;
         result := concat(result, '(' || table_constraint.column_name || ' ' || table_constraint.search_condition || '),' || chr(10));
     end loop;
+    select count(*) into amount from all_constraints where owner = dev_schema_name and table_name = tab_name and constraint_type = 'R';
+    if amount <> 0 then
+        select r_constraint_name into pr_key from all_constraints where owner = dev_schema_name and table_name = tab_name and constraint_type = 'R';
+        result := concat(result, chr(9) || 'CONSTRAINT ' || c_name || ' FOREIGN KEY (');
+        for key in table_foreign_keys(pr_key)
+        loop
+            result := concat(result, key.column_name || ', ');
+        end loop;
+        result := concat(result, ') ');
+        result := concat(result, 'REFERENCES ' || prod_schema_name || '.');
+        select table_name into tab2_name from all_constraints where constraint_name = pr_key;
+        result := concat(result, tab2_name);
+        result := concat(result, '(');
+        for key in table_foreign_keys(pr_key)
+        loop
+            result := concat(result, key.column_name || ', ');
+        end loop;
+        result := concat(result, '),' || chr(10));
+    end if;
     result := concat(result, ');');
     result := replace(result, ',' || chr(10) || ')', chr(10) || ')');
+    result := replace(result, ', )', ')');
     dbms_output.put_line(result);
 end ddl_create_table;
 
