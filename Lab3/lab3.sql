@@ -55,12 +55,12 @@ begin
     get_packages(dev_schema_name, prod_schema_name);
 end get_differences;
 
-create or replace procedure ddl_create_table(dev_schema_name varchar2, tab_name varchar2) is
+create or replace procedure ddl_create_table(dev_schema_name varchar2, tab_name varchar2, prod_schema_name varchar2) is
     cursor table_columns is
         select column_name, data_type, data_length, nullable
         from all_tab_columns
         where owner = dev_schema_name
-            and table_name = table_name
+            and table_name = tab_name
         order by column_name;
     cursor table_constraints is
         select all_constraints.constraint_name, all_constraints.constraint_type, all_constraints.search_condition, all_ind_columns.column_name
@@ -71,8 +71,8 @@ create or replace procedure ddl_create_table(dev_schema_name varchar2, tab_name 
             and all_constraints.table_name = tab_name
         order by all_constraints.constraint_name;
 begin
-    dbms_output.put_line('DROP TABLE ' || UPPER(tab_name) || ';');
-    dbms_output.put_line('CREATE TABLE ' || UPPER(tab_name) || '(');
+    dbms_output.put_line('DROP TABLE ' || prod_schema_name || '.' || UPPER(tab_name) || ';');
+    dbms_output.put_line('CREATE TABLE ' || prod_schema_name || '.' || UPPER(tab_name) || '(');
     for table_column in table_columns
     loop
         dbms_output.put(table_column.column_name || ' ' || table_column.data_type || '(' || table_column.data_length || ')');
@@ -91,6 +91,68 @@ begin
     end loop;
     dbms_output.put_line(')');
 end ddl_create_table;
+
+create or replace procedure ddl_create_procedure(dev_schema_name varchar2, procedure_name varchar2, prod_schema_name varchar2) is
+    cursor procedure_text is
+        select text
+        from all_source
+        where owner = dev_schema_name
+            and name = procedure_name
+            and type = 'PROCEDURE'
+            and line <> 1;
+    cursor procedure_args is
+        select argument_name, data_type
+        from all_arguments
+        where owner = dev_schema_name
+            and object_name = procedure_name
+            and position <> 0;
+begin
+    dbms_output.put('CREATE OR REPLACE PROCEDURE ' || prod_schema_name || '.' || procedure_name);
+    dbms_output.put('(');
+    for arg in procedure_args
+    loop
+        dbms_output.put(arg.argument_name || ' ' || arg.data_type || ', ');
+    end loop;
+    dbms_output.put_line(') IS');
+
+    for line in procedure_text
+    loop
+        dbms_output.put(line.text);
+    end loop;
+    dbms_output.put_line('');
+end ddl_create_procedure;
+
+create or replace procedure ddl_create_function(dev_schema_name varchar2, function_name varchar2, prod_schema_name varchar2) is
+    cursor procedure_text is
+        select text
+        from all_source
+        where owner = dev_schema_name
+            and name = function_name
+            and type = 'FUNCTION'
+            and line <> 1;
+    cursor procedure_args is
+        select argument_name, data_type
+        from all_arguments
+        where owner = dev_schema_name
+            and object_name = function_name
+            and position <> 0;
+    arg_type all_arguments.data_type%TYPE;
+begin
+    dbms_output.put('CREATE OR REPLACE FUNCTION ' || prod_schema_name || '.' || function_name);
+    dbms_output.put('(');
+    for arg in procedure_args
+    loop
+        dbms_output.put(arg.argument_name || ' ' || arg.data_type || ', ');
+    end loop;
+    select data_type into arg_type from all_arguments where owner = dev_schema_name and object_name = function_name and position = 0;
+    dbms_output.put_line(') RETURN ' || arg_type || ' IS');
+
+    for line in procedure_text
+    loop
+        dbms_output.put(line.text);
+    end loop;
+    dbms_output.put_line('');
+end ddl_create_function;
 
 create or replace procedure get_tables(dev_schema_name varchar2, prod_schema_name varchar2) is
     cursor dev_schema_tables is
@@ -135,7 +197,7 @@ begin
         select count(*) into amount from all_tables where owner = prod_schema_name and table_name = dev_schema_table.table_name;
         if amount = 0 then
             dbms_output.put_line(dev_schema_table.table_name);
-            ddl_create_table(dev_schema_name, dev_schema_table.table_name);
+            ddl_create_table(dev_schema_name, dev_schema_table.table_name, prod_schema_name);
         else
             select count(*) into columns_amount1 from all_tab_columns where owner = dev_schema_name and table_name = dev_schema_table.table_name;
             select count(*) into columns_amount2 from all_tab_columns where owner = prod_schema_name and table_name = dev_schema_table.table_name;
@@ -159,7 +221,7 @@ begin
                     
                     if column_name1 <> column_name2 or data_type1 <> data_type2 or data_length1 <> data_length2 or nullable1 <> nullable2 then
                         dbms_output.put_line(dev_schema_table.table_name);
-                        ddl_create_table(dev_schema_name, dev_schema_table.table_name);
+                        ddl_create_table(dev_schema_name, dev_schema_table.table_name, prod_schema_name);
                         exit;
                     end if;
 
@@ -170,7 +232,7 @@ begin
                 close prod_table_columns;
             else
                 dbms_output.put_line(dev_schema_table.table_name);
-                ddl_create_table(dev_schema_name, dev_schema_table.table_name);
+                ddl_create_table(dev_schema_name, dev_schema_table.table_name, prod_schema_name);
             end if;
 
             select count(*) into constraints_amount1 from all_constraints where owner = dev_schema_name and table_name = dev_schema_table.table_name;
@@ -195,6 +257,7 @@ begin
                     
                     if constraint_name1 <> constraint_name2 or constraint_type1 <> constraint_type2 or search_condition1 <> search_condition2 then
                         dbms_output.put_line(dev_schema_table.table_name);
+                        ddl_create_table(dev_schema_name, dev_schema_table.table_name, prod_schema_name);
                         exit;
                     end if;
 
@@ -205,6 +268,7 @@ begin
                 close prod_table_constraints;
             else
                 dbms_output.put_line(dev_schema_table.table_name);
+                ddl_create_table(dev_schema_name, dev_schema_table.table_name, prod_schema_name);
             end if;
         end if;
     end loop;
@@ -245,6 +309,7 @@ begin
         select count(*) into amount from all_source where owner = prod_schema_name and type = 'PROCEDURE' and name = dev_schema_procedure.name;
         if amount = 0 then
             dbms_output.put_line(dev_schema_procedure.name);
+            ddl_create_procedure(dev_schema_name, dev_schema_procedure.name, prod_schema_name);
         else
             select count(*) into args_amount1 from all_arguments where owner = dev_schema_name and object_name = dev_schema_procedure.name;
             select count(*) into args_amount2 from all_arguments where owner = prod_schema_name and object_name = dev_schema_procedure.name;
@@ -268,6 +333,7 @@ begin
                     
                     if arg1 <> arg2 or type1 <> type2 then
                         dbms_output.put_line(dev_schema_procedure.name);
+                        ddl_create_procedure(dev_schema_name, dev_schema_procedure.name, prod_schema_name);
                         exit;
                     end if;
 
@@ -278,6 +344,7 @@ begin
                 close prod_procedure_args;
             else
                 dbms_output.put_line(dev_schema_procedure.name);
+                ddl_create_procedure(dev_schema_name, dev_schema_procedure.name, prod_schema_name);
             end if;
 
             select count(*) into lines_amount1 from all_source where owner = dev_schema_name and type = 'PROCEDURE' and name = dev_schema_procedure.name;
@@ -304,6 +371,7 @@ begin
                     
                     if line1 <> line2 then
                         dbms_output.put_line(dev_schema_procedure.name);
+                        ddl_create_procedure(dev_schema_name, dev_schema_procedure.name, prod_schema_name);
                         exit;
                     end if;
 
@@ -314,6 +382,7 @@ begin
                 close prod_procedure_text;
             else
                 dbms_output.put_line(dev_schema_procedure.name);
+                ddl_create_procedure(dev_schema_name, dev_schema_procedure.name, prod_schema_name);
             end if;
         end if;
     end loop;
@@ -354,6 +423,7 @@ begin
         select count(*) into amount from all_source where owner = prod_schema_name and type = 'FUNCTION' and name = dev_schema_function.name;
         if amount = 0 then
             dbms_output.put_line(dev_schema_function.name);
+            ddl_create_function(dev_schema_name, dev_schema_function.name, prod_schema_name);
         else
             select count(*) into args_amount1 from all_arguments where owner = dev_schema_name and object_name = dev_schema_function.name;
             select count(*) into args_amount2 from all_arguments where owner = prod_schema_name and object_name = dev_schema_function.name;
@@ -377,6 +447,7 @@ begin
                     
                     if arg1 <> arg2 or type1 <> type2 then
                         dbms_output.put_line(dev_schema_function.name);
+                        ddl_create_function(dev_schema_name, dev_schema_function.name, prod_schema_name);
                         exit;
                     end if;
 
@@ -387,6 +458,7 @@ begin
                 close prod_function_args;
             else
                 dbms_output.put_line(dev_schema_function.name);
+                ddl_create_function(dev_schema_name, dev_schema_function.name, prod_schema_name);
             end if;
 
             select count(*) into lines_amount1 from all_source where owner = dev_schema_name and type = 'FUNCTION' and name = dev_schema_function.name;
@@ -413,6 +485,7 @@ begin
                     
                     if line1 <> line2 then
                         dbms_output.put_line(dev_schema_function.name);
+                        ddl_create_function(dev_schema_name, dev_schema_function.name, prod_schema_name);
                         exit;
                     end if;
 
@@ -423,6 +496,7 @@ begin
                 close prod_function_text;
             else
                 dbms_output.put_line(dev_schema_function.name);
+                ddl_create_function(dev_schema_name, dev_schema_function.name, prod_schema_name);
             end if;
         end if;
     end loop;
