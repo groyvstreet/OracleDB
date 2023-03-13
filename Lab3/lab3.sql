@@ -176,6 +176,24 @@ begin
     dbms_output.put_line(');');
 end ddl_create_index;
 
+create or replace procedure ddl_create_package(dev_schema_name varchar2, package_name varchar2, prod_schema_name varchar2) is
+    cursor package_text is
+        select text
+        from all_source
+        where owner = dev_schema_name
+            and name = package_name
+            and type = 'PACKAGE'
+            and line <> 1;
+begin
+    dbms_output.put_line('CREATE OR REPLACE PACKAGE ' || prod_schema_name || '.' || package_name || ' IS');
+
+    for line in package_text
+    loop
+        dbms_output.put(line.text);
+    end loop;
+    dbms_output.put_line('');
+end ddl_create_package;
+
 create or replace procedure get_tables(dev_schema_name varchar2, prod_schema_name varchar2) is
     cursor dev_schema_tables is
         select *
@@ -649,6 +667,7 @@ begin
         select count(*) into amount from all_source where owner = prod_schema_name and type = 'PACKAGE' and name = dev_schema_package.name;
         if amount = 0 then
             dbms_output.put_line(dev_schema_package.name);
+            ddl_create_package(dev_schema_name, dev_schema_package.name, prod_schema_name);
         else
             select count(*) into lines_amount1 from all_source where owner = dev_schema_name and type = 'PACKAGE' and name = dev_schema_package.name;
             select count(*) into lines_amount2 from all_source where owner = prod_schema_name and type = 'PACKAGE' and name = dev_schema_package.name;
@@ -674,6 +693,7 @@ begin
                     
                     if line1 <> line2 then
                         dbms_output.put_line(dev_schema_package.name);
+                        ddl_create_package(dev_schema_name, dev_schema_package.name, prod_schema_name);
                         exit;
                     end if;
 
@@ -684,6 +704,7 @@ begin
                 close prod_package_text;
             else
                 dbms_output.put_line(dev_schema_package.name);
+                ddl_create_package(dev_schema_name, dev_schema_package.name, prod_schema_name);
             end if;
         end if;
     end loop;
@@ -703,6 +724,10 @@ end;
 
 begin
     get_indexes('DEV_SCHEMA', 'PROD_SCHEMA');
+end;
+
+begin
+    get_packages('DEV_SCHEMA', 'PROD_SCHEMA');
 end;
 
 create table dev_schema.mytable(
@@ -728,6 +753,18 @@ end;
 
 create index dev_schema.test_index1 on dev_schema.mytable(id);
 create index prod_schema.test_index1 on prod_schema.mytable(id);
+
+CREATE OR REPLACE PACKAGE dev_schema.test_pkg IS
+
+	PROCEDURE Out_Screen(TOSC IN VARCHAR2);
+	
+	FUNCTION Add_Two_Num(A IN NUMBER, B IN NUMBER) RETURN NUMBER;
+	
+	FUNCTION Min_Two_Num(A IN NUMBER, B IN NUMBER) RETURN NUMBER;
+
+	FUNCTION FACTORIAL(NUM IN NUMBER) RETURN NUMBER;
+	
+END test_pkg;
 
 select * from all_tab_columns where owner = 'DEV_SCHEMA' or owner = 'PROD_SCHEMA';
 select * from all_source where name = 'TEST_PROC1';
