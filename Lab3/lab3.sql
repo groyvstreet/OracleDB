@@ -154,6 +154,28 @@ begin
     dbms_output.put_line('');
 end ddl_create_function;
 
+create or replace procedure ddl_create_index(dev_schema_name varchar2, ind_name varchar2, prod_schema_name varchar2) is
+    tab_name all_indexes.table_name%TYPE;
+
+    cursor index_columns is
+        select column_name
+        from all_ind_columns
+        inner join all_indexes
+        on all_ind_columns.index_name = all_indexes.index_name
+            and all_ind_columns.index_owner = all_indexes.owner
+        where index_owner = dev_schema_name
+            and all_indexes.index_name = ind_name;
+begin
+    select table_name into tab_name from all_indexes where owner = dev_schema_name and index_name = ind_name;
+    dbms_output.put_line('DROP INDEX ' || prod_schema_name || '.' || ind_name || ';');
+    dbms_output.put('CREATE INDEX ' || prod_schema_name || '.' || ind_name || ' ON ' || prod_schema_name || '.' || tab_name || '(');
+    for index_column in index_columns
+    loop
+        dbms_output.put(index_column.column_name || ', ');
+    end loop;
+    dbms_output.put_line(');');
+end ddl_create_index;
+
 create or replace procedure get_tables(dev_schema_name varchar2, prod_schema_name varchar2) is
     cursor dev_schema_tables is
         select *
@@ -510,6 +532,12 @@ create or replace procedure get_indexes(dev_schema_name varchar2, prod_schema_na
 
     amount number;
 
+    index1_columns SYS_REFCURSOR;
+    index2_columns SYS_REFCURSOR;
+
+    columns_amount1 number;
+    columns_amount2 number;
+
     index_type1 all_indexes.index_type%TYPE;
     table_name1 all_indexes.table_name%TYPE;
     uniqueness1 all_indexes.uniqueness%TYPE;
@@ -525,26 +553,74 @@ begin
         select count(*) into amount from all_indexes where owner = prod_schema_name and index_name = dev_schema_index.index_name;
         if amount = 0 then
             dbms_output.put_line(dev_schema_index.index_name);
+            ddl_create_index(dev_schema_name, dev_schema_index.index_name, prod_schema_name);
         else
-            select all_indexes.index_type, all_indexes.table_name, all_indexes.uniqueness, all_ind_columns.column_name
-            into index_type1, table_name1, uniqueness1, column_name1
+            select index_type, table_name, uniqueness
+            into index_type1, table_name1, uniqueness1
             from all_indexes
-            inner join all_ind_columns
-            on all_indexes.index_name = all_ind_columns.index_name and all_indexes.owner = all_ind_columns.index_owner
-            where all_indexes.owner = dev_schema_name
-                and all_indexes.index_name = dev_schema_index.index_name;
+            where owner = dev_schema_name
+                and index_name = dev_schema_index.index_name;
 
-            select all_indexes.index_type, all_indexes.table_name, all_indexes.uniqueness, all_ind_columns.column_name
-            into index_type2, table_name2, uniqueness2, column_name2
+            select index_type, table_name, uniqueness
+            into index_type2, table_name2, uniqueness2
             from all_indexes
-            inner join all_ind_columns
-            on all_indexes.index_name = all_ind_columns.index_name and all_indexes.owner = all_ind_columns.index_owner
-            where all_indexes.owner = prod_schema_name
-                and all_indexes.index_name = dev_schema_index.index_name;
-            
-            if index_type1 <> index_type2 or table_name1 <> table_name2 or uniqueness1 <> uniqueness2 or column_name1 <> column_name2 then
+            where owner = prod_schema_name
+                and index_name = dev_schema_index.index_name;
+
+            if index_type1 = index_type2 and table_name1 = table_name2 and uniqueness1 = uniqueness2 then
+                select count(*)
+                into columns_amount1
+                from all_indexes
+                inner join all_ind_columns
+                on all_indexes.index_name = all_ind_columns.index_name and all_indexes.owner = all_ind_columns.index_owner
+                where all_indexes.owner = dev_schema_name
+                    and all_indexes.index_name = dev_schema_index.index_name;
+
+                select count(*)
+                into columns_amount2
+                from all_indexes
+                inner join all_ind_columns
+                on all_indexes.index_name = all_ind_columns.index_name and all_indexes.owner = all_ind_columns.index_owner
+                where all_indexes.owner = prod_schema_name
+                    and all_indexes.index_name = dev_schema_index.index_name;
+
+                if columns_amount1 = columns_amount2 then
+                    open index1_columns for
+                        select column_name
+                        from all_ind_columns
+                        where index_owner = dev_schema_name
+                            and index_name = dev_schema_index.index_name
+                        group by column_name;
+                    
+                    open index2_columns for
+                        select column_name
+                        from all_ind_columns
+                        where index_owner = prod_schema_name
+                            and index_name = dev_schema_index.index_name
+                        group by column_name;
+
+                    loop
+                        fetch index1_columns into column_name1;
+                        fetch index2_columns into column_name2;
+
+                        if column_name1 <> column_name2 then
+                            dbms_output.put_line(dev_schema_index.index_name);
+                            ddl_create_index(dev_schema_name, dev_schema_index.index_name, prod_schema_name);
+                            exit;
+                        end if;
+
+                        exit when index1_columns%NOTFOUND and index2_columns%NOTFOUND;
+                    end loop;
+
+                    close index1_columns;
+                    close index2_columns;
+                else
+                    dbms_output.put_line(dev_schema_index.index_name);
+                    ddl_create_index(dev_schema_name, dev_schema_index.index_name, prod_schema_name);
+                end if;
+            else
                 dbms_output.put_line(dev_schema_index.index_name);
-                exit;
+                ddl_create_index(dev_schema_name, dev_schema_index.index_name, prod_schema_name);
             end if;
         end if;
     end loop;
