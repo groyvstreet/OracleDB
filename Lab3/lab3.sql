@@ -55,6 +55,43 @@ begin
     get_packages(dev_schema_name, prod_schema_name);
 end get_differences;
 
+create or replace procedure ddl_create_table(dev_schema_name varchar2, tab_name varchar2) is
+    cursor table_columns is
+        select column_name, data_type, data_length, nullable
+        from all_tab_columns
+        where owner = dev_schema_name
+            and table_name = table_name
+        order by column_name;
+    cursor table_constraints is
+        select all_constraints.constraint_name, all_constraints.constraint_type, all_constraints.search_condition, all_ind_columns.column_name
+        from all_constraints
+        inner join all_ind_columns
+        on all_constraints.constraint_name = all_ind_columns.index_name
+        where owner = dev_schema_name
+            and all_constraints.table_name = tab_name
+        order by all_constraints.constraint_name;
+begin
+    dbms_output.put_line('DROP TABLE ' || UPPER(tab_name) || ';');
+    dbms_output.put_line('CREATE TABLE ' || UPPER(tab_name) || '(');
+    for table_column in table_columns
+    loop
+        dbms_output.put(table_column.column_name || ' ' || table_column.data_type || '(' || table_column.data_length || ')');
+        if table_column.nullable = 'N' then
+            dbms_output.put(' NOT NULL');
+        end if;
+        dbms_output.put_line(',');
+    end loop;
+    for table_constraint in table_constraints
+    loop
+        dbms_output.put('CONSTRAINT ' || table_constraint.constraint_name || ' ');
+        if table_constraint.constraint_type = 'U' then
+            dbms_output.put('UNIQUE ');
+        end if;
+        dbms_output.put_line('(' || table_constraint.column_name || ' ' || table_constraint.search_condition || ')');
+    end loop;
+    dbms_output.put_line(')');
+end ddl_create_table;
+
 create or replace procedure get_tables(dev_schema_name varchar2, prod_schema_name varchar2) is
     cursor dev_schema_tables is
         select *
@@ -98,6 +135,7 @@ begin
         select count(*) into amount from all_tables where owner = prod_schema_name and table_name = dev_schema_table.table_name;
         if amount = 0 then
             dbms_output.put_line(dev_schema_table.table_name);
+            ddl_create_table(dev_schema_name, dev_schema_table.table_name);
         else
             select count(*) into columns_amount1 from all_tab_columns where owner = dev_schema_name and table_name = dev_schema_table.table_name;
             select count(*) into columns_amount2 from all_tab_columns where owner = prod_schema_name and table_name = dev_schema_table.table_name;
@@ -121,6 +159,7 @@ begin
                     
                     if column_name1 <> column_name2 or data_type1 <> data_type2 or data_length1 <> data_length2 or nullable1 <> nullable2 then
                         dbms_output.put_line(dev_schema_table.table_name);
+                        ddl_create_table(dev_schema_name, dev_schema_table.table_name);
                         exit;
                     end if;
 
@@ -131,6 +170,7 @@ begin
                 close prod_table_columns;
             else
                 dbms_output.put_line(dev_schema_table.table_name);
+                ddl_create_table(dev_schema_name, dev_schema_table.table_name);
             end if;
 
             select count(*) into constraints_amount1 from all_constraints where owner = dev_schema_name and table_name = dev_schema_table.table_name;
@@ -517,7 +557,8 @@ end;
 
 create table dev_schema.mytable(
     id number,
-    val number
+    val number,
+    constraint id_unique unique (id)
 );
 
 create table prod_schema.mytable(
