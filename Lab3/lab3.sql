@@ -387,6 +387,54 @@ begin
     end loop;
 end get_functions;
 
+create or replace procedure get_indexes(dev_schema_name varchar2, prod_schema_name varchar2) is
+    cursor dev_schema_indexes is
+        select index_name
+        from all_indexes
+        where owner = dev_schema_name;
+
+    amount number;
+
+    index_type1 all_indexes.index_type%TYPE;
+    table_name1 all_indexes.table_name%TYPE;
+    uniqueness1 all_indexes.uniqueness%TYPE;
+    column_name1 all_ind_columns.column_name%TYPE;
+
+    index_type2 all_indexes.index_type%TYPE;
+    table_name2 all_indexes.table_name%TYPE;
+    uniqueness2 all_indexes.uniqueness%TYPE;
+    column_name2 all_ind_columns.column_name%TYPE;
+begin
+    for dev_schema_index in dev_schema_indexes
+    loop
+        select count(*) into amount from all_indexes where owner = prod_schema_name and index_name = dev_schema_index.index_name;
+        if amount = 0 then
+            dbms_output.put_line(dev_schema_index.index_name);
+        else
+            select all_indexes.index_type, all_indexes.table_name, all_indexes.uniqueness, all_ind_columns.column_name
+            into index_type1, table_name1, uniqueness1, column_name1
+            from all_indexes
+            inner join all_ind_columns
+            on all_indexes.index_name = all_ind_columns.index_name and all_indexes.owner = all_ind_columns.index_owner
+            where all_indexes.owner = dev_schema_name
+                and all_indexes.index_name = dev_schema_index.index_name;
+
+            select all_indexes.index_type, all_indexes.table_name, all_indexes.uniqueness, all_ind_columns.column_name
+            into index_type2, table_name2, uniqueness2, column_name2
+            from all_indexes
+            inner join all_ind_columns
+            on all_indexes.index_name = all_ind_columns.index_name and all_indexes.owner = all_ind_columns.index_owner
+            where all_indexes.owner = prod_schema_name
+                and all_indexes.index_name = dev_schema_index.index_name;
+            
+            if index_type1 <> index_type2 or table_name1 <> table_name2 or uniqueness1 <> uniqueness2 or column_name1 <> column_name2 then
+                dbms_output.put_line(dev_schema_index.index_name);
+                exit;
+            end if;
+        end if;
+    end loop;
+end get_indexes;
+
 begin
     get_tables('DEV_SCHEMA', 'PROD_SCHEMA');
 end;
@@ -397,6 +445,10 @@ end;
 
 begin
     get_functions('DEV_SCHEMA', 'PROD_SCHEMA');
+end;
+
+begin
+    get_indexes('DEV_SCHEMA', 'PROD_SCHEMA');
 end;
 
 create table dev_schema.mytable(
@@ -418,6 +470,9 @@ create or replace function dev_schema.test_func1(arg1 number, arg2 number) retur
 begin
     return 1;
 end;
+
+create index dev_schema.test_index1 on dev_schema.mytable(id);
+create index prod_schema.test_index1 on prod_schema.mytable(id);
 
 select * from all_tab_columns where owner = 'DEV_SCHEMA' or owner = 'PROD_SCHEMA';
 select * from all_source where name = 'TEST_PROC1';
