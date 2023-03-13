@@ -710,6 +710,66 @@ begin
     end loop;
 end get_packages;
 
+create or replace procedure delete_tables(dev_schema_name varchar2, prod_schema_name varchar2) is
+    cursor tables is
+        select table_name from all_tables where owner = prod_schema_name
+        minus
+        select table_name from all_tables where owner = dev_schema_name;
+begin
+    for tab in tables
+    loop
+        dbms_output.put_line('DROP TABLE ' || prod_schema_name || '.' || tab.table_name);
+    end loop;
+end delete_tables;
+
+create or replace procedure delete_procedures(dev_schema_name varchar2, prod_schema_name varchar2) is
+    cursor procedures is
+        select object_name from all_procedures where owner = prod_schema_name and type = 'PROCEDURE'
+        minus
+        select object_name from all_procedures where owner = dev_schema_name and type = 'PROCEDURE';
+begin
+    for proc in procedures
+    loop
+        dbms_output.put_line('DROP PROCEDURE ' || prod_schema_name || '.' || proc.object_name);
+    end loop;
+end delete_procedures;
+
+create or replace procedure delete_functions(dev_schema_name varchar2, prod_schema_name varchar2) is
+    cursor functions is
+        select object_name from all_objects where owner = prod_schema_name and object_type = 'FUNCTION'
+        minus
+        select object_name from all_objects where owner = dev_schema_name and object_type = 'FUNCTION';
+begin
+    for func in functions
+    loop
+        dbms_output.put_line('DROP FUNCTION ' || func.object_name);
+    end loop;
+end delete_functions;
+
+create or replace procedure delete_indexes(dev_schema_name varchar2, prod_schema_name varchar2) is
+    cursor inds is
+        select index_name from all_indexes where owner = prod_schema_name
+        minus
+        select index_name from all_indexes where owner = dev_schema_name;
+begin
+    for ind in inds
+    loop
+        dbms_output.put_line('DROP INDEX ' || ind.index_name);
+    end loop;
+end delete_indexes;
+
+create or replace procedure delete_packages(dev_schema_name varchar2, prod_schema_name varchar2) is
+    cursor packages is
+        select object_name from all_objects where owner = prod_schema_name and object_type = 'PACKAGE'
+        minus
+        select object_name from all_objects where owner = dev_schema_name and object_type = 'PACKAGE';
+begin
+    for pkg in packages
+    loop
+        dbms_output.put_line('DROP PACKAGE ' || pkg.object_name);
+    end loop;
+end delete_packages;
+
 begin
     get_tables('DEV_SCHEMA', 'PROD_SCHEMA');
 end;
@@ -728,6 +788,26 @@ end;
 
 begin
     get_packages('DEV_SCHEMA', 'PROD_SCHEMA');
+end;
+
+begin
+    delete_tables('DEV_SCHEMA', 'PROD_SCHEMA');
+end;
+
+begin
+    delete_procedures('DEV_SCHEMA', 'PROD_SCHEMA');
+end;
+
+begin
+    delete_functions('DEV_SCHEMA', 'PROD_SCHEMA');
+end;
+
+begin
+    delete_indexes('DEV_SCHEMA', 'PROD_SCHEMA');
+end;
+
+begin
+    delete_packages('DEV_SCHEMA', 'PROD_SCHEMA');
 end;
 
 create table dev_schema.mytable(
@@ -768,3 +848,5 @@ END test_pkg;
 
 select * from all_tab_columns where owner = 'DEV_SCHEMA' or owner = 'PROD_SCHEMA';
 select * from all_source where name = 'TEST_PROC1';
+
+select * from all_tables where owner = 'DEV_SCHEMA' or owner = 'PROD_SCHEMA'
