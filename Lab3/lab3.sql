@@ -52,6 +52,7 @@ begin
     get_procedures(dev_schema_name, prod_schema_name);
     get_functions(dev_schema_name, prod_schema_name);
     get_indexes(dev_schema_name, prod_schema_name);
+    get_packages(dev_schema_name, prod_schema_name);
 end get_differences;
 
 create or replace procedure get_tables(dev_schema_name varchar2, prod_schema_name varchar2) is
@@ -434,6 +435,69 @@ begin
         end if;
     end loop;
 end get_indexes;
+
+create or replace procedure get_packages(dev_schema_name varchar2, prod_schema_name varchar2) is
+    cursor dev_schema_packages is
+        select distinct name
+        from all_source
+        where owner = dev_schema_name
+            and type = 'PACKAGE';
+
+    dev_package_text SYS_REFCURSOR;
+    prod_package_text SYS_REFCURSOR;
+
+    amount number;
+
+    lines_amount1 number;
+    lines_amount2 number;
+
+    line1 all_source.text%TYPE;
+    line2 all_source.text%TYPE;
+begin
+    for dev_schema_package in dev_schema_packages
+    loop
+        select count(*) into amount from all_source where owner = prod_schema_name and type = 'PACKAGE' and name = dev_schema_package.name;
+        if amount = 0 then
+            dbms_output.put_line(dev_schema_package.name);
+        else
+            select count(*) into lines_amount1 from all_source where owner = dev_schema_name and type = 'PACKAGE' and name = dev_schema_package.name;
+            select count(*) into lines_amount2 from all_source where owner = prod_schema_name and type = 'PACKAGE' and name = dev_schema_package.name;
+            if lines_amount1 = lines_amount2 then
+                open dev_package_text for
+                    select text
+                    from all_source
+                    where owner = dev_schema_name
+                        and name = dev_schema_package.name
+                        and line <> 1
+                    order by line;
+                open prod_package_text for
+                    select text
+                    from all_source
+                    where owner = prod_schema_name
+                        and name = dev_schema_package.name
+                        and line <> 1
+                    order by line;
+
+                loop
+                    fetch dev_package_text into line1;
+                    fetch prod_package_text into line2;
+                    
+                    if line1 <> line2 then
+                        dbms_output.put_line(dev_schema_package.name);
+                        exit;
+                    end if;
+
+                    exit when dev_package_text%NOTFOUND and prod_package_text%NOTFOUND;
+                end loop;
+
+                close dev_package_text;
+                close prod_package_text;
+            else
+                dbms_output.put_line(dev_schema_package.name);
+            end if;
+        end if;
+    end loop;
+end get_packages;
 
 begin
     get_tables('DEV_SCHEMA', 'PROD_SCHEMA');
