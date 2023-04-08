@@ -11,6 +11,13 @@ begin
         "tables": [
             "cars"
         ],
+        "joins": [
+            {
+                "type": "inner",
+                "table": "person",
+                "on": "1=1"
+            }
+        ],
         "conditions": [
             {
                 "type": "default",
@@ -48,6 +55,7 @@ create or replace procedure execute_request(json_text clob) is
     request_type clob;
     cols clob;
     tabs clob;
+    joins clob;
     conditions clob;
     condition_type clob;
 begin
@@ -80,6 +88,16 @@ begin
             end if;
         end loop;
 
+        -- joins
+        temp_array := json.get_array('joins');
+
+        for i in 0..temp_array.get_size() - 1
+        loop
+            temp_object := treat(temp_array.get(i) as json_object_t);
+
+            joins := joins || temp_object.get_string('type') || ' join ' || temp_object.get_string('table') || ' on ' || temp_object.get_string('on');
+        end loop;
+
         -- conditions
         temp_array := json.get_array('conditions');
 
@@ -96,7 +114,7 @@ begin
             end if;
         end loop;
 
-        dbms_output.put_line('select ' || cols || ' from ' || tabs || ' where' || conditions);
+        dbms_output.put_line('select ' || cols || ' from ' || tabs || ' ' || joins || ' where' || conditions);
     end if;
 end execute_request;
 
