@@ -1,52 +1,3 @@
-declare
-    json_text clob;
-begin
-    json_text := '
-    {
-        "request": "select",
-        "columns": [
-            "id",
-            "name"
-        ],
-        "tables": [
-            "cars"
-        ],
-        "joins": [
-            {
-                "type": "inner",
-                "table": "person",
-                "on": "1=1"
-            }
-        ],
-        "conditions": [
-            {
-                "type": "default",
-                "condition": "id < 3 and id ="
-            },
-            {
-                "type": "request",
-                "condition": {
-                    "request": "select",
-                    "columns": [
-                        "id"
-                    ],
-                    "tables": [
-                        "cars"
-                    ],
-                    "conditions": [
-                        {
-                            "type": "default",
-                            "condition": "id = 2"
-                        }
-                    ]
-                }
-            }
-        ]
-    }
-    ';
-    execute_request(json_text);
-end;
-
 create or replace procedure execute_request(json_text clob) is
     json json_object_t;
     temp_array json_array_t;
@@ -58,6 +9,7 @@ create or replace procedure execute_request(json_text clob) is
     joins clob;
     conditions clob;
     condition_type clob;
+    vals clob;
 begin
     json := json_object_t.parse(json_text);
 
@@ -115,6 +67,80 @@ begin
         end loop;
 
         dbms_output.put_line('select ' || cols || ' from ' || tabs || ' ' || joins || ' where' || conditions);
+    end if;
+
+    if request_type = 'delete' then
+        -- conditions
+        temp_array := json.get_array('conditions');
+
+        for i in 0..temp_array.get_size() - 1
+        loop
+            temp_object := treat(temp_array.get(i) as json_object_t);
+
+            condition_type := temp_object.get_string('type');
+
+            if condition_type = 'default' then
+                conditions := conditions || ' ' || temp_object.get_string('condition');
+            else
+                conditions := conditions || ' (' || parse_request(treat(temp_object.get('condition') as json_object_t)) || ')';
+            end if;
+        end loop;
+
+        dbms_output.put_line('delete from ' || json.get_string('table') || ' where' || conditions);
+    end if;
+
+    if request_type = 'update' then
+        -- columns
+        temp_array := json.get_array('columns');
+
+        for i in 0..temp_array.get_size() - 1
+        loop
+            temp_object := treat(temp_array.get(i) as json_object_t);
+
+            if i = temp_array.get_size() - 1 then
+                cols := cols || temp_object.get_string('key') || ' = ' || temp_object.get_string('value');
+            else
+                cols := cols || temp_object.get_string('key') || ' = ' || temp_object.get_string('value') || ', ';
+            end if;
+        end loop;
+
+        -- conditions
+        temp_array := json.get_array('conditions');
+
+        for i in 0..temp_array.get_size() - 1
+        loop
+            temp_object := treat(temp_array.get(i) as json_object_t);
+
+            condition_type := temp_object.get_string('type');
+
+            if condition_type = 'default' then
+                conditions := conditions || ' ' || temp_object.get_string('condition');
+            else
+                conditions := conditions || ' (' || parse_request(treat(temp_object.get('condition') as json_object_t)) || ')';
+            end if;
+        end loop;
+
+        dbms_output.put_line('update ' || json.get_string('table') || ' set ' || cols || ' where' || conditions);
+    end if;
+
+    if request_type = 'insert' then
+        -- columns
+        temp_array := json.get_array('columns');
+
+        for i in 0..temp_array.get_size() - 1
+        loop
+            temp_object := treat(temp_array.get(i) as json_object_t);
+
+            if i = temp_array.get_size() - 1 then
+                cols := cols || temp_object.get_string('key');
+                vals := vals || '''' || temp_object.get_string('value') || '''';
+            else
+                cols := cols || temp_object.get_string('key') || ', ';
+                vals := vals || '''' || temp_object.get_string('value') || '''' || ', ';
+            end if;
+        end loop;
+
+        dbms_output.put_line('insert into ' || json.get_string('table') || '(' || cols || ') values(' || vals || ')');
     end if;
 end execute_request;
 
