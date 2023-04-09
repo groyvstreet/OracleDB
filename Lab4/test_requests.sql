@@ -1,3 +1,5 @@
+-- select
+
 declare
     json_text clob;
 begin
@@ -57,6 +59,64 @@ begin
     execute_request(json_text);
 end;
 
+-- delete
+
+declare
+    json_text clob;
+begin
+    json_text := '
+    {
+        "request": "delete",
+        "table": "persons",
+        "conditions": {
+            "type": "binary",
+            "operator": "and",
+            "left": {
+                "type": "binary",
+                "operator": "=",
+                "left": {
+                    "type": "default",
+                    "condition": "id"
+                },
+                "right": {
+                    "type": "request",
+                    "condition": {
+                        "request": "select",
+                        "columns": [
+                            "person_id"
+                        ],
+                        "tables": [
+                            "cars"
+                        ],
+                        "conditions": {
+                            "type": "default",
+                            "condition": "id = 2"
+                        }
+                    }
+                }
+            },
+            "right": {
+                "type": "unary",
+                "operator": "exists",
+                "operand": {
+                    "type": "request",
+                    "condition": {
+                        "request": "select",
+                        "columns": [
+                            "*"
+                        ],
+                        "tables": [
+                            "persons"
+                        ]
+                    }
+                }
+            }
+        }
+    }
+    ';
+    execute_request(json_text);
+end;
+
 declare
     json_text clob;
 begin
@@ -68,13 +128,13 @@ begin
             "type": "binary",
             "operator": "and",
             "left": {
-                "type": "default",
-                "condition": "id < 3"
-            },
-            "right": {
-                "type": "unary",
-                "operator": "exists",
-                "operand": {
+                "type": "binary",
+                "operator": "=",
+                "left": {
+                    "type": "default",
+                    "condition": "id"
+                },
+                "right": {
                     "type": "request",
                     "condition": {
                         "request": "select",
@@ -84,14 +144,79 @@ begin
                         "tables": [
                             "cars"
                         ],
-                        "joins": [
-
-                        ],
                         "conditions": {
                             "type": "default",
                             "condition": "id = 2"
                         }
                     }
+                }
+            },
+            "right": {
+                "type": "unary",
+                "operator": "not exists",
+                "operand": {
+                    "type": "request",
+                    "condition": {
+                        "request": "select",
+                        "columns": [
+                            "*"
+                        ],
+                        "tables": [
+                            "persons"
+                        ]
+                    }
+                }
+            }
+        }
+    }
+    ';
+    execute_request(json_text);
+end;
+
+-- update
+
+declare
+    json_text clob;
+begin
+    json_text := '
+    {
+        "request": "update",
+        "table": "persons",
+        "columns": [
+            {
+                "key": "id",
+                "value": "2"
+            },
+            {
+                "key": "name",
+                "value": "''krakenoid''"
+            }
+        ],
+        "conditions": {
+            "type": "binary",
+            "operator": "and",
+            "left": {
+                "type": "binary",
+                "operator": "=",
+                "left": {
+                    "type": "default",
+                    "condition": "id"
+                },
+                "right": {
+                    "type": "default",
+                    "condition": "1"
+                }
+            },
+            "right": {
+                "type": "binary",
+                "operator": "=",
+                "left": {
+                    "type": "default",
+                    "condition": "name"
+                },
+                "right": {
+                    "type": "default",
+                    "condition": "''kraken''"
                 }
             }
         }
@@ -110,40 +235,85 @@ begin
         "columns": [
             {
                 "key": "id",
-                "value": "1"
+                "value": "2"
+            },
+            {
+                "key": "name",
+                "value": "''nissan''"
+            },
+            {
+                "key": "person_id",
+                "value": "2"
             }
         ],
         "conditions": {
             "type": "binary",
             "operator": "and",
             "left": {
-                "type": "default",
-                "condition": "id < 3"
+                "type": "binary",
+                "operator": "=",
+                "left": {
+                    "type": "default",
+                    "condition": "id"
+                },
+                "right": {
+                    "type": "default",
+                    "condition": "1"
+                }
             },
             "right": {
-                "type": "unary",
-                "operator": "exists",
-                "operand": {
-                    "type": "request",
-                    "condition": {
-                        "request": "select",
-                        "columns": [
-                            "id"
-                        ],
-                        "tables": [
-                            "cars"
-                        ],
-                        "joins": [
-
-                        ],
-                        "conditions": {
-                            "type": "default",
-                            "condition": "id = 2"
-                        }
+                "type": "binary",
+                "operator": "and",
+                "left": {
+                    "type": "binary",
+                    "operator": "=",
+                    "left": {
+                        "type": "default",
+                        "condition": "person_id"
+                    },
+                    "right": {
+                        "type": "default",
+                        "condition": "1"
+                    }
+                },
+                "right": {
+                    "type": "binary",
+                    "operator": "=",
+                    "left": {
+                        "type": "default",
+                        "condition": "name"
+                    },
+                    "right": {
+                        "type": "default",
+                        "condition": "''tesla''"
                     }
                 }
             }
         }
+    }
+    ';
+    execute_request(json_text);
+end;
+
+-- insert
+
+declare
+    json_text clob;
+begin
+    json_text := '
+    {
+        "request": "insert",
+        "table": "persons",
+        "columns": [
+            {
+                "key": "id",
+                "value": "1"
+            },
+            {
+                "key": "name",
+                "value": "''kraken''"
+            }
+        ]
     }
     ';
     execute_request(json_text);
@@ -163,7 +333,43 @@ begin
             },
             {
                 "key": "name",
-                "value": "Tesla"
+                "value": "''tesla''"
+            },
+            {
+                "key": "person_id",
+                "value": "1"
+            }
+        ]
+    }
+    ';
+    execute_request(json_text);
+end;
+
+-- create
+
+declare
+    json_text clob;
+begin
+    json_text := '
+    {
+        "request": "create",
+        "table": "persons",
+        "columns": [
+            {
+                "key": "id",
+                "value": "number"
+            },
+            {
+                "key": "name",
+                "value": "varchar2(100)"
+            }
+        ],
+        "primary": [
+            {
+                "name": "person_id",
+                "columns": [
+                    "id"
+                ]
             }
         ]
     }
@@ -186,16 +392,34 @@ begin
             {
                 "key": "name",
                 "value": "varchar2(100)"
+            },
+            {
+                "key": "person_id",
+                "value": "varchar2(100)"
             }
         ],
         "primary": [
             {
-                "name": "test",
+                "name": "car_id",
                 "columns": [
                     "id"
                 ]
             }
         ]
+    }
+    ';
+    execute_request(json_text);
+end;
+
+-- drop
+
+declare
+    json_text clob;
+begin
+    json_text := '
+    {
+        "request": "drop",
+        "table": "persons"
     }
     ';
     execute_request(json_text);
