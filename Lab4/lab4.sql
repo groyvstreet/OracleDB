@@ -3,32 +3,22 @@ create or replace procedure execute_request(json_text clob) is
     request clob;
     f number;
     l number;
+    result clob;
 begin
     json := json_object_t.parse(json_text);
-    request := parse_request(json);
+    request := parse_request(json) || ';';
     dbms_output.put_line(request);
-    dbms_output.put_line(regexp_substr(request, '(.+);'));
 
-    f := 1;
-    l := 1;
+    result := substr(regexp_substr(request, '(.+);'), 1, length(regexp_substr(request, '(.+);')) - 1);
+    execute immediate result;
 
+    for i in 1..regexp_count(request, 'create or replace trigger')
     loop
-        f := instr(request, 'create or replace trigger', l);
-        l := instr(request, 'end;', l);
-
-        exit when f < 1 or l < 1;
-
-        l := l - f + 4;
-
-        dbms_output.put_line(substr(request, f, l));
+        f := instr(request, 'create or replace trigger', 1, i);
+        l := instr(request, 'end;', 1, i) - f + 4;
+        result := substr(request, f, l);
+        execute immediate result;
     end loop;
-
-    -- for i in 1..regexp_count(request, '(\w+)end;')
-    -- loop
-    --     dbms_output.put_line(regexp_substr(request, '(\w+)end;', 1, i));
-    -- end loop;
-    -- dbms_output.put_line(substr(request, instr(request, 'create or replace trigger'), instr(request, 'end;') - instr(request, 'create or replace trigger') + 4));
-    --execute immediate request;
 end execute_request;
 
 create or replace function parse_request(json json_object_t) return clob is
