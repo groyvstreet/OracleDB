@@ -7,53 +7,31 @@ begin
     {
         "request": "select",
         "columns": [
-            "id",
-            "name"
+            "cars.id",
+            "cars.name",
+            "cars.person_id"
         ],
         "tables": [
-            "cars"
+            "persons"
         ],
         "joins": [
             {
-                "type": "inner",
-                "table": "person",
+                "type": "left",
+                "table": "cars",
                 "conditions": {
-                    "type": "default",
-                    "condition": "1 = 1"
-                }
-            }
-        ],
-        "conditions": {
-            "type": "binary",
-            "operator": "and",
-            "left": {
-                "type": "default",
-                "condition": "id < 3"
-            },
-            "right": {
-                "type": "unary",
-                "operator": "exists",
-                "operand": {
-                    "type": "request",
-                    "condition": {
-                        "request": "select",
-                        "columns": [
-                            "id"
-                        ],
-                        "tables": [
-                            "cars"
-                        ],
-                        "joins": [
-
-                        ],
-                        "conditions": {
-                            "type": "default",
-                            "condition": "id = 2"
-                        }
+                    "type": "binary",
+                    "operator": "=",
+                    "left": {
+                        "type": "default",
+                        "condition": "cars.person_id"
+                    },
+                    "right": {
+                        "type": "default",
+                        "condition": "persons.id"
                     }
                 }
             }
-        }
+        ]
     }
     ';
     execute_request(json_text);
