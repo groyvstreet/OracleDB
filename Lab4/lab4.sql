@@ -1,3 +1,24 @@
+declare
+    result_cursor sys_refcursor;
+    id cars.id%type;
+    name cars.name%type;
+    person_id cars.person_id%type;
+begin
+    result_cursor := get_cursor(parse_request(json_object_t.parse(json_text)));
+    loop
+        fetch result_cursor into id, name, person_id;
+        dbms_output.put_line(id || ' ' || name || ' ' || person_id);
+        exit when result_cursor%notfound;
+    end loop;
+end;
+
+create or replace function get_cursor(request clob) return sys_refcursor is
+    result_cursor sys_refcursor;
+begin
+    open result_cursor for request;
+    return result_cursor;
+end;
+
 create or replace procedure execute_request(json_text clob) is
     json json_object_t;
     request clob;
