@@ -1,11 +1,34 @@
 create or replace procedure execute_request(json_text clob) is
     json json_object_t;
     request clob;
+    f number;
+    l number;
 begin
     json := json_object_t.parse(json_text);
     request := parse_request(json);
     dbms_output.put_line(request);
-    execute immediate request;
+    dbms_output.put_line(regexp_substr(request, '(.+);'));
+
+    f := 1;
+    l := 1;
+
+    loop
+        f := instr(request, 'create or replace trigger', l);
+        l := instr(request, 'end;', l);
+
+        exit when f < 1 or l < 1;
+
+        l := l - f + 4;
+
+        dbms_output.put_line(substr(request, f, l));
+    end loop;
+
+    -- for i in 1..regexp_count(request, '(\w+)end;')
+    -- loop
+    --     dbms_output.put_line(regexp_substr(request, '(\w+)end;', 1, i));
+    -- end loop;
+    -- dbms_output.put_line(substr(request, instr(request, 'create or replace trigger'), instr(request, 'end;') - instr(request, 'create or replace trigger') + 4));
+    --execute immediate request;
 end execute_request;
 
 create or replace function parse_request(json json_object_t) return clob is
@@ -21,6 +44,8 @@ create or replace function parse_request(json json_object_t) return clob is
     condition_type clob;
     vals clob;
     prim clob;
+    triggers clob;
+    triggers_count number;
 begin
     request_type := json.get_string('request');
 
@@ -149,6 +174,7 @@ begin
         end loop;
 
         -- primary
+        triggers_count := 1;
         temp_array := json.get_array('primary');
 
         if temp_array is not null then
@@ -170,6 +196,37 @@ begin
                         else
                             prim := prim || temp_array2.get_string(j) || ', ';
                         end if;
+
+                        -- triggers
+                        triggers := triggers || '
+                            create or replace trigger ' || json.get_string('table') || '_insert_' || triggers_count || '
+                                before insert
+                                on ' || json.get_string('table') || '
+                                for each row
+                            declare
+                                amount number;
+                                last_id number;
+                            begin
+                                select count(*) into amount from ' || json.get_string('table') || ';
+                                if amount = 0 then
+                                    :new.' || temp_array2.get_string(j) || ' := 1;
+                                else
+                                    select max(' || temp_array2.get_string(j) || ') into last_id from ' || json.get_string('table') || ';
+                                    if :new.' || temp_array2.get_string(j) || ' > last_id then
+                                        :new.' || temp_array2.get_string(j) || ' := last_id + 1;
+                                    elsif :new.' || temp_array2.get_string(j) || ' > 0 then
+                                        select count(*) into amount from '|| json.get_string('table') || ' where ' || temp_array2.get_string(j) || ' = :new.' || temp_array2.get_string(j) || ';
+                                        if amount > 0 then
+                                            :new.' || temp_array2.get_string(j) || ' := last_id + 1;
+                                        end if;
+                                    else
+                                        :new.' || temp_array2.get_string(j) || ' := last_id + 1;
+                                    end if;
+                                end if;
+                            end;
+                        ';
+
+                        triggers_count := triggers_count + 1;
                     end loop;
 
                     if i = temp_array.get_size() - 1 then
@@ -179,7 +236,7 @@ begin
                     end if;
                 end loop;
 
-                return 'create table ' || json.get_string('table') || ' (' || cols || ',' || prim || ')';
+                return 'create table ' || json.get_string('table') || ' (' || cols || ',' || prim || ');' || triggers;
             end if;
         else
             return 'create table ' || json.get_string('table') || ' (' || cols || ')';
