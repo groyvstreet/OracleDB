@@ -55,24 +55,9 @@ begin
         end if;
 
         -- conditions
-        temp_array := json.get_array('conditions');
+        temp_object := treat(json.get('conditions') as json_object_t);
 
-        if temp_array.get_size() <> 0 then
-            conditions := ' where';
-
-            for i in 0..temp_array.get_size() - 1
-            loop
-                temp_object := treat(temp_array.get(i) as json_object_t);
-
-                condition_type := temp_object.get_string('type');
-
-                if condition_type = 'default' then
-                    conditions := conditions || ' ' || temp_object.get_string('condition');
-                else
-                    conditions := conditions || ' (' || parse_request(treat(temp_object.get('condition') as json_object_t)) || ')';
-                end if;
-            end loop;
-        end if;
+        conditions := ' where ' || parse_conditions(temp_object);
 
         dbms_output.put_line('select ' || cols || ' from ' || tabs || joins || conditions);
     end if;
@@ -286,3 +271,26 @@ begin
         return 'select ' || cols || ' from ' || tabs || joins || conditions;
     end if;
 end parse_request;
+
+create or replace function parse_conditions(json json_object_t) return clob is
+    conditions clob;
+    object_type clob;
+begin
+    object_type := json.get_string('type');
+
+    if object_type = 'default' then
+        return json.get_string('condition');
+    end if;
+
+    if object_type = 'request' then
+        return '(' || parse_request(treat(json.get('condition') as json_object_t)) || ')';
+    end if;
+
+    if object_type = 'unary' then
+        return json.get_string('operator') || ' ' || parse_conditions(treat(json.get('operand') as json_object_t));
+    end if;
+
+    if object_type = 'binary' then
+        return parse_conditions(treat(json.get('left') as json_object_t)) || ' ' || json.get_string('operator') || ' ' || parse_conditions(treat(json.get('right') as json_object_t));
+    end if;
+end parse_conditions;

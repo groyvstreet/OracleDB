@@ -15,36 +15,45 @@ begin
             {
                 "type": "inner",
                 "table": "person",
-                "on": "1=1"
-            }
-        ],
-        "conditions": [
-            {
-                "type": "default",
-                "condition": "id < 3 and id ="
-            },
-            {
-                "type": "request",
-                "condition": {
-                    "request": "select",
-                    "columns": [
-                        "id"
-                    ],
-                    "tables": [
-                        "cars"
-                    ],
-                    "joins": [
-
-                    ],
-                    "conditions": [
-                        {
-                            "type": "default",
-                            "condition": "id = 2"
-                        }
-                    ]
+                "conditions": {
+                    "type": "default",
+                    "condition": "1 = 1"
                 }
             }
-        ]
+        ],
+        "conditions": {
+            "type": "binary",
+            "operator": "and",
+            "left": {
+                "type": "default",
+                "condition": "id < 3"
+            },
+            "right": {
+                "type": "unary",
+                "operator": "exists",
+                "operand": {
+                    "type": "request",
+                    "condition": {
+                        "request": "select",
+                        "columns": [
+                            "id"
+                        ],
+                        "tables": [
+                            "cars"
+                        ],
+                        "joins": [
+
+                        ],
+                        "conditions": [
+                            {
+                                "type": "default",
+                                "condition": "id = 2"
+                            }
+                        ]
+                    }
+                }
+            }
+        }
     }
     ';
     execute_request(json_text);
