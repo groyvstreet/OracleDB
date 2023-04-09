@@ -33,6 +33,9 @@ begin
                     "tables": [
                         "cars"
                     ],
+                    "joins": [
+
+                    ],
                     "conditions": [
                         {
                             "type": "default",
@@ -68,6 +71,9 @@ begin
                     ],
                     "tables": [
                         "cars"
+                    ],
+                    "joins": [
+
                     ],
                     "conditions": [
                         {
@@ -111,6 +117,9 @@ begin
                     "tables": [
                         "cars"
                     ],
+                    "joins": [
+
+                    ],
                     "conditions": [
                         {
                             "type": "default",
@@ -140,6 +149,66 @@ begin
             {
                 "key": "name",
                 "value": "Tesla"
+            }
+        ]
+    }
+    ';
+    execute_request(json_text);
+end;
+
+declare
+    json_text clob;
+begin
+    json_text := '
+    {
+        "request": "create",
+        "table": "cars",
+        "columns": [
+            {
+                "key": "id",
+                "value": "number"
+            },
+            {
+                "key": "name",
+                "value": "varchar2(100)"
+            }
+        ],
+        "primary": [
+            {
+                "name": "test",
+                "columns": [
+                    "id"
+                ]
+            }
+        ]
+    }
+    ';
+    execute_request(json_text);
+end;
+
+declare
+    json_text clob;
+begin
+    json_text := '
+    {
+        "request": "create",
+        "table": "cars",
+        "columns": [
+            {
+                "key": "id",
+                "value": "number"
+            },
+            {
+                "key": "name",
+                "value": "varchar2(100)"
+            }
+        ],
+        "primary": [
+            {
+                "name": "test",
+                "columns": [
+                    "id"
+                ]
             }
         ]
     }
