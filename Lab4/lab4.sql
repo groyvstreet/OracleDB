@@ -207,6 +207,10 @@ begin
             dbms_output.put_line('create table ' || json.get_string('table') || ' (' || cols || ',' || prim || ')');
         end if;
     end if;
+
+    if request_type = 'drop' then
+        dbms_output.put_line('drop table ' || json.get_string('table'));
+    end if;
 end execute_request;
 
 create or replace function parse_request(json json_object_t) return clob is

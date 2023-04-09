@@ -191,26 +191,8 @@ declare
 begin
     json_text := '
     {
-        "request": "create",
-        "table": "cars",
-        "columns": [
-            {
-                "key": "id",
-                "value": "number"
-            },
-            {
-                "key": "name",
-                "value": "varchar2(100)"
-            }
-        ],
-        "primary": [
-            {
-                "name": "test",
-                "columns": [
-                    "id"
-                ]
-            }
-        ]
+        "request": "drop",
+        "table": "cars"
     }
     ';
     execute_request(json_text);
