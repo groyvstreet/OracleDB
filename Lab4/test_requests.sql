@@ -44,12 +44,10 @@ begin
                         "joins": [
 
                         ],
-                        "conditions": [
-                            {
-                                "type": "default",
-                                "condition": "id = 2"
-                            }
-                        ]
+                        "conditions": {
+                            "type": "default",
+                            "condition": "id = 2"
+                        }
                     }
                 }
             }
@@ -66,33 +64,37 @@ begin
     {
         "request": "delete",
         "table": "cars",
-        "conditions": [
-            {
+        "conditions": {
+            "type": "binary",
+            "operator": "and",
+            "left": {
                 "type": "default",
-                "condition": "id < 3 and id ="
+                "condition": "id < 3"
             },
-            {
-                "type": "request",
-                "condition": {
-                    "request": "select",
-                    "columns": [
-                        "id"
-                    ],
-                    "tables": [
-                        "cars"
-                    ],
-                    "joins": [
+            "right": {
+                "type": "unary",
+                "operator": "exists",
+                "operand": {
+                    "type": "request",
+                    "condition": {
+                        "request": "select",
+                        "columns": [
+                            "id"
+                        ],
+                        "tables": [
+                            "cars"
+                        ],
+                        "joins": [
 
-                    ],
-                    "conditions": [
-                        {
+                        ],
+                        "conditions": {
                             "type": "default",
                             "condition": "id = 2"
                         }
-                    ]
+                    }
                 }
             }
-        ]
+        }
     }
     ';
     execute_request(json_text);
@@ -111,33 +113,37 @@ begin
                 "value": "1"
             }
         ],
-        "conditions": [
-            {
+        "conditions": {
+            "type": "binary",
+            "operator": "and",
+            "left": {
                 "type": "default",
-                "condition": "id < 3 and id ="
+                "condition": "id < 3"
             },
-            {
-                "type": "request",
-                "condition": {
-                    "request": "select",
-                    "columns": [
-                        "id"
-                    ],
-                    "tables": [
-                        "cars"
-                    ],
-                    "joins": [
+            "right": {
+                "type": "unary",
+                "operator": "exists",
+                "operand": {
+                    "type": "request",
+                    "condition": {
+                        "request": "select",
+                        "columns": [
+                            "id"
+                        ],
+                        "tables": [
+                            "cars"
+                        ],
+                        "joins": [
 
-                    ],
-                    "conditions": [
-                        {
+                        ],
+                        "conditions": {
                             "type": "default",
                             "condition": "id = 2"
                         }
-                    ]
+                    }
                 }
             }
-        ]
+        }
     }
     ';
     execute_request(json_text);
