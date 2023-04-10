@@ -67,3 +67,8 @@ create table cars_logs
     car_company_id number,
     car_person_id number
 );
+
+create table current_date_time
+(
+    current_time date
+);
