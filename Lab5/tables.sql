@@ -72,3 +72,6 @@ create table current_date_time
 (
     current_time date
 );
+
+insert into companies values(1, 'qwe', sysdate, 11)
+insert into persons values(1, 'qwe', sysdate, 11)

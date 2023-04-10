@@ -78,7 +78,6 @@ create or replace package body restore_data is
         amount number;
     begin
         execute immediate 'alter trigger companies_logs disable';
-        delete from companies;
 
         for record in records
         loop
@@ -114,7 +113,6 @@ create or replace package body restore_data is
         amount number;
     begin
         execute immediate 'alter trigger persons_logs disable';
-        delete from persons;
 
         for record in records
         loop
@@ -150,7 +148,6 @@ create or replace package body restore_data is
         amount number;
     begin
         execute immediate 'alter trigger cars_logs disable';
-        delete from cars;
 
         for record in records
         loop
@@ -210,16 +207,34 @@ create or replace package body restore_data is
 
     procedure restore_data(date_time date) is
     begin
+        execute immediate 'alter trigger companies_logs disable';
+        execute immediate 'alter trigger persons_logs disable';
+        execute immediate 'alter trigger cars_logs disable';
+        delete from cars;
+        delete from persons;
+        delete from companies;
         restore_companies(date_time);
         restore_persons(date_time);
         restore_cars(date_time);
+        execute immediate 'alter trigger companies_logs enable';
+        execute immediate 'alter trigger persons_logs enable';
+        execute immediate 'alter trigger cars_logs enable';
     end;
 
     procedure restore_data(mls number) is
     begin
+        execute immediate 'alter trigger companies_logs disable';
+        execute immediate 'alter trigger persons_logs disable';
+        execute immediate 'alter trigger cars_logs disable';
+        delete from cars;
+        delete from persons;
+        delete from companies;
         restore_companies(mls);
         restore_persons(mls);
         restore_cars(mls);
+        execute immediate 'alter trigger companies_logs enable';
+        execute immediate 'alter trigger persons_logs enable';
+        execute immediate 'alter trigger cars_logs enable';
     end;
 end restore_data;
 
@@ -350,11 +365,10 @@ begin
 </html>';
 
     dbms_output.put_line(result);
-    -- file_handle := UTL_FILE.FOPEN('D:\Labs\DB\Lab5', 'report.html', 'w');
 
-    -- -- записываем текст в файл
+    -- file_handle := UTL_FILE.FOPEN('directory_name', 'report.html', 'w');
+
     -- UTL_FILE.PUT_LINE(file_handle, result);
 
-    -- -- закрываем файл
     -- UTL_FILE.FCLOSE(file_handle);
 end;
