@@ -154,9 +154,9 @@ create or replace package restore_data is
     procedure restore_persons(date_time date);
     procedure restore_cars(date_time date);
 
-    procedure restore_companies(mls number);
-    procedure restore_persons(mls number);
-    procedure restore_cars(mls number);
+    procedure restore_companies(mls1 number, mls2 number);
+    procedure restore_persons(mls1 number, mls2 number);
+    procedure restore_cars(mls1 number, mls2 number);
 end restore_data;
 
 create or replace package body restore_data is
@@ -263,7 +263,43 @@ create or replace package body restore_data is
         execute immediate 'alter trigger cars_logs enable';
     end;
 
-    procedure restore_companies(mls number);
-    procedure restore_persons(mls number);
-    procedure restore_cars(mls number);
+    procedure restore_companies(mls1 number, mls2 number) is
+        date_time date;
+    begin
+        for i in mls1..mls2
+        loop
+            select systimestamp - numtodsinterval(i / 1000, 'second')
+            into date_time
+            from dual;
+
+            restore_companies(date_time);
+        end loop;
+    end;
+
+    procedure restore_persons(mls1 number, mls2 number) is
+        date_time1 date;
+        date_time2 date;
+        temp_cursor sys_refcursor;
+    begin
+        select systimestamp - numtodsinterval(mls1 / 1000, 'second')
+        into date_time1
+        from dual;
+
+        select systimestamp - numtodsinterval(mls2 / 1000, 'second')
+        into date_time2
+        from dual;
+    end;
+
+    procedure restore_cars(mls1 number, mls2 number) is
+        date_time date;
+    begin
+        for i in mls1..mls2
+        loop
+            select systimestamp - numtodsinterval(i / 1000, 'second')
+            into date_time
+            from dual;
+
+            restore_cars(date_time);
+        end loop;
+    end;
 end restore_data;
