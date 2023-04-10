@@ -7,10 +7,13 @@ create or replace trigger companies_logs
 begin
     if inserting then
         insert into companies_logs values(companies_logs_sequence.nextval, 'insert', sysdate, :new.id, :new.name, :new.opening_date, :new.cars_amount);
+        update_current_date_time(sysdate);
     elsif updating then
         insert into companies_logs values(companies_logs_sequence.nextval, 'update', sysdate, :new.id, :new.name, :new.opening_date, :new.cars_amount);
+        update_current_date_time(sysdate);
     elsif deleting then
         insert into companies_logs values(companies_logs_sequence.nextval, 'delete', sysdate, :old.id, :old.name, :old.opening_date, :old.cars_amount);
+        update_current_date_time(sysdate);
     end if;
 end;
 
@@ -23,10 +26,13 @@ create or replace trigger persons_logs
 begin
     if inserting then
         insert into persons_logs values(persons_logs_sequence.nextval, 'insert', sysdate, :new.id, :new.name, :new.birthday, :new.cars_amount);
+        update_current_date_time(sysdate);
     elsif updating then
         insert into persons_logs values(persons_logs_sequence.nextval, 'update', sysdate, :new.id, :new.name, :new.birthday, :new.cars_amount);
+        update_current_date_time(sysdate);
     elsif deleting then
         insert into persons_logs values(persons_logs_sequence.nextval, 'delete', sysdate, :old.id, :old.name, :old.birthday, :old.cars_amount);
+        update_current_date_time(sysdate);
     end if;
 end;
 
@@ -39,10 +45,13 @@ create or replace trigger cars_logs
 begin
     if inserting then
         insert into cars_logs values(cars_logs_sequence.nextval, 'insert', sysdate, :new.id, :new.model_name, :new.manufacture_date, :new.company_id, :new.person_id);
+        update_current_date_time(sysdate);
     elsif updating then
         insert into cars_logs values(cars_logs_sequence.nextval, 'update', sysdate, :new.id, :new.model_name, :new.manufacture_date, :new.company_id, :new.person_id);
+        update_current_date_time(sysdate);
     elsif deleting then
         insert into cars_logs values(cars_logs_sequence.nextval, 'delete', sysdate, :old.id, :old.model_name, :old.manufacture_date, :old.company_id, :old.person_id);
+        update_current_date_time(sysdate);
     end if;
 end;
 
